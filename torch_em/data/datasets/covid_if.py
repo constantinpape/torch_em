@@ -26,7 +26,7 @@ def get_covid_if_loader(path, patch_shape, sample_range=None,
                         offsets=None, boundaries=False, binary=False,
                         **kwargs):
 
-    available_targets = ("cells",)
+    available_targets = ("cells", "nuclei")
     # TODO support all of these
     # available_targets = ("cells", "nuclei", "infected_cells")
     assert target in available_targets, f"{target} not found in {available_targets}"
@@ -34,7 +34,9 @@ def get_covid_if_loader(path, patch_shape, sample_range=None,
     if target == "cells":
         raw_key = "raw/serum_IgG/s0"
         label_key = "labels/cells/s0"
-    # elif target == "nuclei":
+    elif target == "nuclei":
+        raw_key = "raw/nuclei/s0"
+        label_key = "labels/nuclei/s0"
     # elif target == "infected_cells":
 
     _download_covid_if(path, download)
@@ -50,7 +52,7 @@ def get_covid_if_loader(path, patch_shape, sample_range=None,
         file_paths = [os.path.join(path, f'gt_image_{idx:03}.h5') for idx in range(start, stop)]
         assert all(os.path.exists(fp) for fp in file_paths), f"Invalid sample range {sample_range}"
 
-    assert sum((offsets is None, boundaries, binary)) <= 1
+    assert sum((offsets is not None, boundaries, binary)) <= 1
     if offsets is not None:
         # we add a binary target channel for foreground background segmentation
         label_transform = torch_em.transform.label.AffinityTransform(offsets=offsets,

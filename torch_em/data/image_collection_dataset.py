@@ -6,16 +6,30 @@ from ..util import (ensure_spatial_array, ensure_tensor_with_channels,
 
 # TODO pad images that are too small for the patch shape
 class ImageCollectionDataset(torch.utils.data.Dataset):
+
     def _check_inputs(self, raw_images, label_images):
         if len(raw_images) != len(label_images):
             raise ValueError(f"Expect same number of  and label images, got {len(raw_images)} and {len(label_images)}")
+
+        is_multichan = None
         for raw_im, label_im in zip(raw_images, label_images):
+
             # we only check for compatible shapes if both images support memmap, because
             # we don't want to load everything into ram
             if supports_memmap(raw_im) and supports_memmap(label_im):
                 shape = load_image(raw_im).shape
-                if len(shape) == 3:
-                    raise NotImplementedError("Multi-channel images are not supported yet.")
+                assert len(shape) in (2, 3)
+
+                multichan = len(shape) == 3
+                if is_multichan is None:
+                    is_multichan = multichan
+                else:
+                    assert is_multichan == multichan
+
+                # we assume axis last
+                if is_multichan:
+                    shape = shape[:-1]
+
                 label_shape = load_image(label_im).shape
                 if shape != label_shape:
                     msg = f"Expect raw and labels of same shape, got {shape}, {label_shape} for {raw_im}, {label_im}"
@@ -82,17 +96,26 @@ class ImageCollectionDataset(torch.utils.data.Dataset):
         raw, label = self.raw_images[index], self.label_images[index]
         raw = load_image(raw)
         label = load_image(label)
+
         have_raw_channels = raw.ndim == 3
         have_label_channels = label.ndim == 3
-        if have_raw_channels or have_label_channels:
-            raise NotImplementedError("Multi-channel images are not supported yet.")
+        if have_label_channels:
+            raise NotImplementedError("Multi-channel labels are not supported.")
+
         shape = raw.shape
+        # we assume images are loaded with channel last!
+        if have_raw_channels:
+            shape = shape[:-1]
 
         # sample random bounding box for this image
         bb = self._sample_bounding_box(shape)
 
         raw = np.array(raw[bb])
         label = np.array(label[bb])
+
+        # to channel first
+        if have_raw_channels:
+            raw = raw.transpose((2, 0, 1))
 
         return raw, label
 

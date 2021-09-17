@@ -43,23 +43,6 @@ def normalize_percentile(raw, lower=1.0, upper=99.0, axis=None, eps=1e-7):
 
 
 #
-# defect augmentations
-#
-
-
-# TODO more defect types
-class EMDefectAugmentation:
-    def __init__(self, p_drop_slice):
-        self.p_drop_slice = p_drop_slice
-
-    def __call__(self, raw):
-        for z in range(raw.shape[0]):
-            if np.random.rand() < self.p_drop_slice:
-                raw[z] = 0
-        return raw
-
-
-#
 # default transformation:
 # apply intensity augmentations and normalize
 #

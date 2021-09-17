@@ -73,6 +73,14 @@ class TestModelzoo(unittest.TestCase):
     def test_export_multi_channel(self):
         self._test_export(8)
 
+    def test_add_weights(self):
+        from torch_em.util.modelzoo import add_weight_formats
+        self._test_export(1)
+        additional_formats = ["onnx", "torchscript"]
+        add_weight_formats(self.save_folder, additional_formats)
+        self.assertTrue(os.path.join(self.save_folder, "weigths.onnx"))
+        self.assertTrue(os.path.join(self.save_folder, "weigths-torchscript.pt"))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -72,8 +72,10 @@ def get_platynereis_cell_loader(path, patch_shape,
         data_rois.append(rois.get(sample, np.s_[:, :, :]))
 
     kwargs = update_kwargs(kwargs, 'patch_shape', patch_shape)
-    kwargs = update_kwargs(kwargs, 'ndim', 3)
     kwargs = update_kwargs(kwargs, 'rois', data_rois)
+    # set ndim to 3 if not otherwise specified
+    if "ndim" not in kwargs:
+        kwargs["ndim"] = 3
 
     assert not ((offsets is not None) and boundaries)
     if offsets is not None:
@@ -124,8 +126,10 @@ def get_platynereis_nuclei_loader(path, patch_shape,
         data_rois.append(rois.get(sample, np.s_[:, :, :]))
 
     kwargs = update_kwargs(kwargs, 'patch_shape', patch_shape)
-    kwargs = update_kwargs(kwargs, 'ndim', 3)
     kwargs = update_kwargs(kwargs, 'rois', data_rois)
+    # set ndim to 3 if not otherwise specified
+    if "ndim" not in kwargs:
+        kwargs["ndim"] = 3
 
     assert sum((offsets is None, boundaries, binary)) <= 1
     if offsets is not None:

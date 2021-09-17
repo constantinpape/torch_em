@@ -29,6 +29,10 @@ def make_grid_image(image, y, prediction, selection, gradients=None):
     target_image = normalize_im(y[selection].cpu())
     pred_image = normalize_im(prediction[selection].detach().cpu())
 
+    # TODO support rgb images?
+    if image.shape[0] > 1:
+        image = image[0:1]
+
     n_channels = target_image.shape[0]
     if n_channels == 1:
         nrow = 8

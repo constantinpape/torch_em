@@ -77,16 +77,16 @@ def is_segmentation_dataset(raw_paths, raw_key,
     else:
         can_open_raw = [_can_open(rp, raw_key) for rp in raw_paths]
         if not can_open_raw.count(can_open_raw[0]) == len(can_open_raw):
-            raise ValueError("Inconsistent datasets")
+            raise ValueError("Inconsistent raw data")
         can_open_raw = can_open_raw[0]
 
         can_open_label = [_can_open(lp, label_key) for lp in label_paths]
         if not can_open_label.count(can_open_label[0]) == len(can_open_label):
-            raise ValueError("Inconsistent datasets")
+            raise ValueError("Inconsistent label data")
         can_open_label = can_open_label[0]
 
     if can_open_raw != can_open_label:
-        raise ValueError("Inconsistent datasets")
+        raise ValueError("Inconsistent raw and label data")
 
     return can_open_raw
 
@@ -122,10 +122,10 @@ def _load_segmentation_dataset(raw_paths, raw_key, label_paths, label_key,
     return ds
 
 
-def _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key,
+def _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key, roi,
                                    **kwargs):
 
-    def _get_paths(rpath, rkey, lpath, lkey):
+    def _get_paths(rpath, rkey, lpath, lkey, this_roi):
         rpath = glob(os.path.join(rpath, rkey))
         rpath.sort()
         if len(rpath) == 0:
@@ -134,6 +134,10 @@ def _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key,
         lpath.sort()
         if len(rpath) != len(lpath):
             raise ValueError(f"Expect same number of raw and label images, got {len(rpath)}, {len(lpath)}")
+
+        if this_roi is not None:
+            rpath, lpath = rpath[roi], lpath[roi]
+
         return rpath, lpath
 
     patch_shape = kwargs.pop('patch_shape')
@@ -144,7 +148,7 @@ def _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key,
     assert len(patch_shape) == 2
 
     if isinstance(raw_paths, str):
-        raw_paths, label_paths = _get_paths(raw_paths, raw_key, label_paths, label_key)
+        raw_paths, label_paths = _get_paths(raw_paths, raw_key, label_paths, label_key, roi)
         ds = ImageCollectionDataset(raw_paths, label_paths, patch_shape=patch_shape, **kwargs)
     else:
         ds = []
@@ -152,8 +156,11 @@ def _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key,
         samples_per_ds = [None] * len(raw_paths) if n_samples is None else samples_to_datasets(n_samples,
                                                                                                raw_paths,
                                                                                                raw_key)
-        for i, (raw_path, label_path) in enumerate(zip(raw_paths, label_paths)):
-            rpath, lpath = _get_paths(raw_path, raw_key, label_path, label_key)
+        if roi is None:
+            roi = len(raw_paths) * [None]
+        assert len(roi) == len(raw_paths)
+        for i, (raw_path, label_path, this_roi) in enumerate(zip(raw_paths, label_paths, roi)):
+            rpath, lpath = _get_paths(raw_path, raw_key, label_path, label_key, this_roi)
             dset = ImageCollectionDataset(rpath, lpath, patch_shape=patch_shape,
                                           n_samples=samples_per_ds[i], **kwargs)
             ds.append(dset)
@@ -193,11 +200,13 @@ def default_segmentation_loader(
     n_samples=None,
     sampler=None,
     ndim=None,
+    is_seg_dataset=None,
     **loader_kwargs
 ):
     check_paths(raw_paths, label_paths)
-    is_seg_dataset = is_segmentation_dataset(raw_paths, raw_key,
-                                             label_paths, label_key)
+    if is_seg_dataset is None:
+        is_seg_dataset = is_segmentation_dataset(raw_paths, raw_key,
+                                                 label_paths, label_key)
 
     # we always use a raw transform in the convenience function
     if raw_transform is None:
@@ -216,9 +225,7 @@ def default_segmentation_loader(
                                         rois=rois, n_samples=n_samples, sampler=sampler,
                                         ndim=ndim, dtype=dtype, label_dtype=label_dtype)
     else:
-        if rois is not None:
-            raise ValueError("Image collection dataset does not support a ROI")
-        ds = _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key,
+        ds = _load_image_collection_dataset(raw_paths, raw_key, label_paths, label_key, roi=rois,
                                             patch_shape=patch_shape, label_transform=label_transform,
                                             raw_transform=raw_transform,
                                             label_transform2=label_transform2, transform=transform,
@@ -249,7 +256,8 @@ def default_segmentation_trainer(
     early_stopping=None,
     logger=TensorboardLogger,
     scheduler_kwargs=DEFAULT_SCHEDULER_KWARGS,
-    optimizer_kwargs={}
+    optimizer_kwargs={},
+    trainer_class=DefaultTrainer
 ):
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=learning_rate,
@@ -267,7 +275,7 @@ def default_segmentation_trainer(
     else:
         device = torch.device(device)
 
-    trainer = DefaultTrainer(
+    trainer = trainer_class(
         name=name,
         model=model,
         train_loader=train_loader,

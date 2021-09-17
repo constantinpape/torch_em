@@ -15,6 +15,11 @@ cd dsb
 python export_bioimageio_model.py -c checkpoints/dsb-affinity-model -i /scratch/pape/dsb/test/images/0bda515e370294ed94efd36bd53782288acacb040c171df2ed97fd691fc9d8fe.tif -o ../exported_models/dsb_boundaries -a 1 -f torchscript
 cd ..
 
+echo "Export monuseg model"
+cd monuseg
+python export_bioimageio_model.py -c checkpoints/monuseg-affinity-model -i /g/kreshuk/pape/Work/data/monuseg/images/TCGA-18-5592-01Z-00-DX1.tif -o ../exported_models/monuseg_boundaries -a 1 -f torchscript
+cd ..
+
 echo "Export isbi2012 model"
 cd neuron-segmentation/isbi2012
 python export_bioimageio_model.py -c checkpoints/affinity-model -i /g/kreshuk/data/isbi2012_challenge/isbi2012_test_volume.h5 -o ../../exported_models/isbi2012_boundaries -a 1 -f torchscript

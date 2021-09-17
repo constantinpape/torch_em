@@ -51,7 +51,6 @@ For more details, check out [the training scripts]({training_url})."""
     return doc
 
 
-# TODO write offsets and other mws params into the config if this is a affinity model
 def export_to_bioimageio(checkpoint, input_, output, affs_to_bd, additional_formats):
 
     ckpt_name = os.path.split(checkpoint)[1]
@@ -66,6 +65,17 @@ def export_to_bioimageio(checkpoint, input_, output, affs_to_bd, additional_form
         postprocessing = None
     if is_aff_model and affs_to_bd:
         is_aff_model = False
+
+    if is_aff_model:
+        offsets = [
+            [-1, 0], [0, -1],
+            [-3, 0], [0, -3],
+            [-9, 0], [0, -9],
+            [-27, 0], [0, -27]
+        ]
+        config = {"mws": {"offsets": offsets}}
+    else:
+        config = {}
 
     name = _get_name(is_aff_model, ndim)
     tags = ["u-net", "neuron-segmentation", "segmentation", "volume-em", "isbi2012-challenge"]
@@ -90,7 +100,8 @@ def export_to_bioimageio(checkpoint, input_, output, affs_to_bd, additional_form
         model_postprocessing=postprocessing,
         input_optional_parameters=False,
         for_deepimagej="torchscript" in additional_formats,
-        links=[get_bioimageio_dataset_id("isbi2012")]
+        links=[get_bioimageio_dataset_id("isbi2012")],
+        config=config
     )
     add_weight_formats(output, additional_formats)
 
