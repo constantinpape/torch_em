@@ -56,6 +56,41 @@ def mutex_watershed_segmentation(foreground, affinities, offsets, min_size=50, t
     return seg
 
 
+def multicut_watershed_segmentation(boundaries):
+    """Compute the multicut watershed segmentation using the boundary maps.
+    """
+    ws_seg, _ = elseg.watershed.distance_transform_watershed(input_=boundaries, threshold=0.25, sigma_seeds=2.0)
+
+    # Compute the region adjacency graph
+    rag = elseg.features.compute_rag(ws_seg)
+
+    # Compute the edge costs
+    costs = elseg.features.compute_boundary_features(rag, boundaries)[:, 0]
+
+    # Transform the edge costs from [0, 1] to [-inf, inf], which is necessaru for multicut.
+    # This is done by interpreting the values as probabilities for an edge being 'true'
+    # and then taking the negative log-likelihood. In addition, we weight the costs by
+    # the size of the corresponding edge for z and xy edges.
+    z_edges = elseg.features.compute_z_edge_mask(rag, ws_seg)
+    xy_edges = np.logical_not(z_edges)
+    edge_population = [z_edges, xy_edges]
+
+    edge_sizes = elseg.features.compute_boundary_mean_and_length(rag, boundaries)[:, 1]
+
+    costs = elseg.multicut.transform_probabilities_to_costs(
+        costs, edge_sizes=edge_sizes, edge_populations=edge_population,
+    )
+
+    # Run the multicut partitioning
+    # Here, we use the kernighan lin heuristics to solve the problem, introduced in
+    # http://xilinx.asia/_hdl/4/eda.ee.ucla.edu/EE201A-04Spring/kl.pdf
+    node_labels = elseg.multicut.multicut_kernighan_lin(rag, costs)
+
+    # Map the results back to pixels to obtain the final segmentation
+    instances = elseg.features.project_node_labels_to_pixels(rag, node_labels)
+    return instances
+
+
 def connected_components_with_boundaries(foreground, boundaries, threshold=0.5):
     input_ = np.clip(foreground - boundaries, 0, 1)
     seeds = label(input_ > threshold)
