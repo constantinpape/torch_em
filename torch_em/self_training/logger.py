@@ -102,3 +102,7 @@ class SelfTrainingTensorboardLogger(torch_em.trainer.logger_base.TorchEmLogger):
         self.tb.add_scalar(tag="validation/metric", scalar_value=metric, global_step=step)
         if gt_metric is not None:
             self.tb.add_scalar(tag="validation/gt_metric", scalar_value=gt_metric, global_step=step)
+            
+    def log_ct(self, step, ct):
+        self.tb.add_scalar(tag="train/confidence_threshold", scalar_value=ct, global_step=step)
+    
